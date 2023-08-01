@@ -13,22 +13,26 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.TimeoutHandler;
+import io.vertx.ext.web.openapi.RouterBuilder;
+import io.vertx.ext.web.openapi.RouterBuilderOptions;
 import iudx.apd.acl.server.apiserver.util.RequestType;
 import iudx.apd.acl.server.apiserver.util.User;
-import iudx.apd.acl.server.authentication.AuthenticationService;
+import iudx.apd.acl.server.authentication.AuthHandler;
+import iudx.apd.acl.server.authentication.SomeAuth;
 import iudx.apd.acl.server.common.Api;
 import iudx.apd.acl.server.common.HttpStatusCode;
 import iudx.apd.acl.server.common.ResponseUrn;
 import iudx.apd.acl.server.policy.PolicyService;
 import iudx.apd.acl.server.validation.FailureHandler;
-import iudx.apd.acl.server.validation.ValidationHandler;
-import iudx.apd.acl.server.validation.ValidationHandlerFactory;
+
 import java.util.stream.Stream;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -61,7 +65,6 @@ public class ApiServerVerticle extends AbstractVerticle {
     private String dxApiBasePath;
     private Api api;
     private PolicyService policyService;
-    private AuthenticationService authenticationService;
     private String detail;
 
     private static User getConsumer() {
@@ -100,6 +103,116 @@ public class ApiServerVerticle extends AbstractVerticle {
         dxApiBasePath = config().getString("dxApiBasePath");
         api = Api.getInstance(dxApiBasePath);
 
+        FailureHandler failureHandler = new FailureHandler();
+        /* Initialize service proxy */
+        policyService = PolicyService.createProxy(vertx, POLICY_SERVICE_ADDRESS);
+
+
+        /* Initialize Router builder */
+        RouterBuilder.create(vertx, "docs/openapi.yaml")
+                .onSuccess(
+                        routerBuilder -> {
+                            routerBuilder.securityHandler("authorization", new SomeAuth());
+
+                            routerBuilder
+                                    .operation(CREATE_POLICY_API)
+//                                    .handler(AuthHandler.create(vertx,api))
+                                    .handler(this::postPoliciesHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder
+                                    .operation(GET_POLICY_API)
+                                    .handler(this::getPoliciesHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder
+                                    .operation(DELETE_POLICY_API)
+                                    .handler(this::deletePoliciesHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder
+                                    .operation(CREATE_NOTIFICATIONS_API)
+                                    .handler(this::postAccessRequestHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder
+                                    .operation(UPDATE_NOTIFICATIONS_API)
+                                    .handler(this::putAccessRequestHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder
+                                    .operation(GET_NOTIFICATIONS_API)
+                                    .handler(this::getAccessRequestHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder
+                                    .operation(DELETE_NOTIFICATIONS_API)
+                                    .handler(this::deleteAccessRequestHandler)
+                                    .failureHandler(failureHandler);
+
+                            routerBuilder.rootHandler(TimeoutHandler.create(1000000, 408));
+                            router = routerBuilder.createRouter();
+                            configureCorsHandler(routerBuilder);
+                            putCommonResponseHeaders();
+                            configureErrorHandlers(router);
+                            routerBuilder.rootHandler(BodyHandler.create());
+
+
+
+                            /* Documentation routes */
+                            /* Static Resource Handler */
+                            /* Get openapiv3 spec */
+                            router
+                                    .get(ROUTE_STATIC_SPEC)
+                                    .produces(APPLICATION_JSON)
+                                    .handler(
+                                            routingContext -> {
+                                                HttpServerResponse response = routingContext.response();
+                                                response.sendFile("docs/openapi.yaml");
+                                            });
+                            /* Get redoc */
+                            router
+                                    .get(ROUTE_DOC)
+                                    .produces(MIME_TEXT_HTML)
+                                    .handler(
+                                            routingContext -> {
+                                                HttpServerResponse response = routingContext.response();
+                                                response.sendFile("docs/apidoc.html");
+                                            });
+
+                            /* Read ssl configuration. */
+                            HttpServerOptions serverOptions = new HttpServerOptions();
+                            setServerOptions(serverOptions);
+                            serverOptions.setCompressionSupported(true).setCompressionLevel(5);
+                            server = vertx.createHttpServer(serverOptions);
+                            server.requestHandler(router).listen(port);
+
+                            printDeployedEndpoints(router);
+                            /* Print the deployed endpoints */
+                            LOGGER.info("API server deployed on: " + port);
+                        })
+                .onFailure(
+                        failure -> {
+                            failure.printStackTrace();
+                            LOGGER.error(
+                                    "Failed to initialize router builder {}", failure.getCause().getMessage());
+                        });
+    }
+
+    private void printDeployedEndpoints(Router router) {
+        for (Route route : router.getRoutes()) {
+            if (route.getPath() != null) {
+                LOGGER.info("API Endpoints deployed : " + route.methods() + " : " + route.getPath());
+            }
+        }
+    }
+   /* @Override
+    public void start() throws Exception {
+
+        *//* Define the APIs, methods, endpoints and associated methods. *//*
+        dxApiBasePath = config().getString("dxApiBasePath");
+        api = Api.getInstance(dxApiBasePath);
+
         policyService = PolicyService.createProxy(vertx, POLICY_SERVICE_ADDRESS);
         authenticationService = AuthenticationService.createProxy(vertx, AUTH_SERVICE_ADDRESS);
 
@@ -114,7 +227,7 @@ public class ApiServerVerticle extends AbstractVerticle {
         router.route().handler(BodyHandler.create());
         router.route().handler(TimeoutHandler.create(10000, 408));
 
-        /* Api endpoints */
+        *//* Api endpoints *//*
         ValidationHandler policyHandler =
                 new ValidationHandler(vertx, RequestType.POLICY, new ValidationHandlerFactory());
         FailureHandler policyFailureHandler = new FailureHandler();
@@ -131,9 +244,9 @@ public class ApiServerVerticle extends AbstractVerticle {
         router.post(api.getRequestPoliciesUrl()).handler(this::postAccessRequestHandler);
         router.put(api.getRequestPoliciesUrl()).handler(this::putAccessRequestHandler);
 
-        /* Documentation routes */
-        /* Static Resource Handler */
-        /* Get openapiv3 spec */
+        *//* Documentation routes *//*
+        *//* Static Resource Handler *//*
+        *//* Get openapiv3 spec *//*
         router
                 .get(ROUTE_STATIC_SPEC)
                 .produces(APPLICATION_JSON)
@@ -142,7 +255,7 @@ public class ApiServerVerticle extends AbstractVerticle {
                             HttpServerResponse response = routingContext.response();
                             response.sendFile("docs/openapi.yaml");
                         });
-        /* Get redoc */
+        *//* Get redoc *//*
         router
                 .get(ROUTE_DOC)
                 .produces(MIME_TEXT_HTML)
@@ -151,16 +264,16 @@ public class ApiServerVerticle extends AbstractVerticle {
                             HttpServerResponse response = routingContext.response();
                             response.sendFile("docs/apidoc.html");
                         });
-        /* Read ssl configuration. */
+        *//* Read ssl configuration. *//*
         HttpServerOptions serverOptions = new HttpServerOptions();
         setServerOptions(serverOptions);
         serverOptions.setCompressionSupported(true).setCompressionLevel(5);
         server = vertx.createHttpServer(serverOptions);
         server.requestHandler(router).listen(port);
 
-        /* Print the deployed endpoints */
+        *//* Print the deployed endpoints *//*
         LOGGER.info("API server deployed on: " + port);
-    }
+    }*/
 
     private void putAccessRequestHandler(RoutingContext routingContext) {}
 
@@ -236,15 +349,20 @@ public class ApiServerVerticle extends AbstractVerticle {
     /**
      * Configures the CORS handler on the provided router.
      *
-     * @param router The router instance to configure the CORS handler on.
+     * @param routerBuilder The router builder instance to configure the CORS handler on.
      */
-    private void configureCorsHandler(Router router) {
+/*    private void configureCorsHandler(Router router) {
         router
                 .route()
                 .handler(
                         CorsHandler.create("*")
                                 .allowedHeaders(ALLOWED_HEADERS)
                                 .allowedMethods(ALLOWED_METHODS));
+    }*/
+    private void configureCorsHandler(RouterBuilder routerBuilder) {
+        routerBuilder.rootHandler(CorsHandler.create("*")
+                        .allowedHeaders(ALLOWED_HEADERS)
+                        .allowedMethods(ALLOWED_METHODS));
     }
 
     /**
@@ -384,6 +502,6 @@ public class ApiServerVerticle extends AbstractVerticle {
                 .putHeader(CONTENT_TYPE, APPLICATION_JSON)
                 .setStatusCode(statusCode.getValue())
                 .end(generateResponse(statusCode, urn, failureMessage).toString());
-    };
+    }
 
 }

@@ -43,8 +43,8 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/getPolicySuccessResponse1'
-                  - $ref: '#/components/schemas/getPolicySuccessResponse2'
+                  - $ref: '#/components/schemas/getPolicySuccessResponseWithResourceGroup'
+                  - $ref: '#/components/schemas/getPolicySuccessResponseWithResourceType'
           headers:
             Content-Type:
               schema:
@@ -62,7 +62,7 @@ paths:
                 type: string
               description: application/json
         '404':
-          description: '- Unauthorized - `token` invalid/expired'
+          description: '- Not Found - Policy not found'
           content:
             application/json:
               schema:
@@ -95,7 +95,7 @@ paths:
       summary: Delete Policies
       description: |-
         Delete policies created by a user. User policies can be deleted.
-        The request would contain objects with a key `id`, i.e. the ID of the user policy or APD policy that the user wants to delete. The user can use the List Policy API to get the policy IDs.
+        The request would contain `id`, i.e. the ID of the user policy or APD policy that the user wants to delete. The user can use the List Policy API to get the policy ID.
         ## delegate
          - A delegate may use the API to view policies on behalf of their provider. This is done by passing the userInfo of the delegator must be present in the token issued by the AAA
       operationId: delete-auth-v1-policies
@@ -110,41 +110,25 @@ paths:
             maxLength: 4000
             example: Bearer <JWT>
       requestBody:
-        description: Request body is a JsonObject containing a JsonArray having one or multiple ID Objects to delete policies.
+        description: Request body is a JsonObject containing ID whose value is the policy ID.
         required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                request:
-                  type: array
-                  minItems: 1
-                  uniqueItems: true
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                        pattern: '^[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}$'
-                        minLength: 36
-                        maxLength: 36
-                    required:
-                      - id
+                id:
+                  type: string
+                  format: uuid
+                  pattern: '^[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}$'
+                  minLength: 36
+                  maxLength: 36
               required:
-                - request
-              x-examples:
-                example-1:
-                  request:
-                    - id: ''
-                    - id: ''
+                - id
             examples:
               Delete Policies:
                 value:
-                  request:
-                    - id: 231f6eca-6276-4993-bfeb-53cbbbba6f06
-                    - id: 231f6eca-6276-4993-bfeb-53cbbbba6f0b
+                  id: 231f6eca-6276-4993-bfeb-53cbbbba6f06
       responses:
         '200':
           description: Successfully deleted the User Policies
@@ -158,7 +142,10 @@ paths:
                 type: string
               description: application/json
         '400':
-          description: Bad Request- Error or exceptions -id is not a valid a policyId
+          description: |-
+            Bad Request
+            - Error or exceptions 
+            - id is not a valid a policyId
           content:
             application/json:
               schema:
@@ -168,8 +155,23 @@ paths:
               schema:
                 type: string
               description: application/json
+        '404':
+          description: |-
+            Not Found 
+              - policy id does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/deletePolicyNotFoundErrorResponse'
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              description: application/json
         '401':
-          description: '- Unauthorized - `token` invalid/expired'
+          description: |-
+            Unauthorized
+              - `token` invalid/expired
           content:
             application/json:
               schema:
@@ -387,7 +389,7 @@ paths:
         - authorization: []
 
 
-  /policies/requests:
+  /ngsi-ld/v1/policies/requests:
     get:
       tags:
         - Notifications APIs
@@ -421,7 +423,7 @@ paths:
               examples:
                 ListResults:
                   value:
-                    type: 'urn:acl:as:Success'
+                    type: 'urn:dx:acl:Success'
                     title: Access requests
                     results:
                       - requestId: ea48d233-5d3b-4bdb-9545-691680c99cee
@@ -567,7 +569,7 @@ paths:
               examples:
                 Example:
                   value:
-                    type: 'urn:acl:as:Success'
+                    type: 'urn:dx:acl:Success'
                     title: Access requests
                     results:
                       - requestId: bd5f0bb3-c02c-4e3d-b75c-a6eb8144bddc
@@ -741,7 +743,7 @@ paths:
               examples:
                 Update:
                   value:
-                    type: 'urn:acl:as:Success'
+                    type: 'urn:dx:acl:Success'
                     title: Access requests
                     results:
                       - requestId: bd5f0bb3-c02c-4e3d-b75c-a6eb8144bddc
@@ -828,206 +830,52 @@ paths:
             type: string
       requestBody:
         description: |-
-          - `id` : the UUID of the request that are to be deleted.
-
-          Consumers can get the ids of the requests they want to delete using the list notifications API.
+          - `id` : the UUID of the request that is to be deleted.
+          
+          Consumers can get the id of the request they want to delete using the list notifications API.
         required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                request:
-                  type: array
-                  minItems: 1
-                  uniqueItems: true
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                        pattern: '^[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}$'
-                        minLength: 36
-                        maxLength: 36
-                    required:
-                      - id
+                id:
+                  type: string
+                  format: uuid
+                  pattern: '^[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}$'
+                  minLength: 36
+                  maxLength: 36
               required:
-                - request
-              x-examples:
-                example-1:
-                  request:
-                    - id: 6c61b9c7-6cfd-4d2a-bfc1-217fd56bb8e3
+                - id
             examples:
-              single delete request:
+              Delete Notification:
                 value:
-                  request:
-                    - id: 6c61b9c7-6cfd-4d2a-bfc1-217fd56bb8e3
+                  id: 6c61b9c7-6cfd-4d2a-bfc1-217fd56bb8e3
+
       responses:
         '200':
-          description: OK
+          description: Successfully deleted the Notification
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  title:
-                    type: string
-                  results:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        requestId:
-                          type: string
-                        itemId:
-                          type: string
-                        itemType:
-                          type: string
-                        status:
-                          type: string
-                        expiryDuration:
-                          type: string
-                        constraints:
-                          type: object
-                          properties:
-                            access:
-                              type: array
-                              items:
-                                type: string
-                        user:
-                          type: object
-                          properties:
-                            email:
-                              type: string
-                            name:
-                              type: object
-                              properties:
-                                firstName:
-                                  type: string
-                                lastName:
-                                  type: string
-                            id:
-                              type: string
-                        owner:
-                          type: object
-                          properties:
-                            email:
-                              type: string
-                            name:
-                              type: object
-                              properties:
-                                firstName:
-                                  type: string
-                                lastName:
-                                  type: string
-                            id:
-                              type: string
-                x-examples:
-                  example-1:
-                    type: 'urn:acl:as:Success'
-                    title: deleted requests
-                    results:
-                      - requestId: 383ea497-0de9-4d6f-94c1-e3dd1328d944
-                        itemId: iisc.ac.in/89a36273d77dac4cf38114fca1bbe64392547f86/rs.iudx.io/integration-test
-                        itemType: resource_group
-                        status: withdrawn
-                        expiryDuration: '1 year 2 mons 10 days 02:30:00'
-                        constraints:
-                          access:
-                            - api
-                            - sub
-                            - file
-                        user:
-                          email: alice_consumer@iisc.ac.in
-                          name:
-                            firstName: Alice
-                            lastName: Consumer
-                          id: fdfb2eb0-f11e-43cb-a737-d17ed592e948
-                        owner:
-                          email: bob_provider@iisc.ac.in
-                          name:
-                            firstName: Bob
-                            lastName: Provider
-                          id: 844e251b-574b-46e6-9247-f76f1f70a637
-              examples:
-                successful deletion:
-                  value:
-                    type: 'urn:acl:as:Success'
-                    title: deleted requests
-                    results:
-                      - requestId: 383ea497-0de9-4d6f-94c1-e3dd1328d944
-                        itemId: integration-test
-                        itemType: resource_group
-                        status: withdrawn
-                        expiryDuration: '1 year 2 mons 10 days 02:30:00'
-                        constraints:
-                          access:
-                            - api
-                            - sub
-                            - file
-                        user:
-                          email: alice_consumer@iisc.ac.in
-                          name:
-                            firstName: Alice
-                            lastName: Consumer
-                          id: fdfb2eb0-f11e-43cb-a737-d17ed592e948
-                        owner:
-                          email: bob_provider@iisc.ac.in
-                          name:
-                            firstName: Bob
-                            lastName: Provider
-                          id: 844e251b-574b-46e6-9247-f76f1f70a637
+                $ref: '#/components/schemas/deleteNotification'
         '400':
-          description: The Id does not exist or was not created by the user calling the API or is no longer in the `pending` status
+          description: |-
+            Bad Request
+              - Errors or exceptions
+              - The ID is no longer in the `PENDING` status or has already been withdrawn earlier
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  title:
-                    type: string
-                  detail:
-                    type: string
-                x-examples:
-                  example-1:
-                    type: 'urn:acl:as:InvalidInput'
-                    title: requestId does not exists
-                    detail: '[6c61b9c7-6cfd-4d2a-bfc1-217fd56bb8e3]'
-              examples:
-                item does not es:
-                  value:
-                    type: 'urn:acl:as:InvalidInput'
-                    title: requestId does not exists
-                    detail: '[6c61b9c7-6cfd-4d2a-bfc1-217fd56bb8e3]'
-        '401':
-          description: User with non consumer role trying to call the API
+                $ref: '#/components/schemas/deleteNotificationBadRequest'
+        '404':
+          description: |-
+            Not Found
+              - The ID for which the request is being withdrawn is not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  type:
-                    type: string
-                  title:
-                    type: string
-                  detail:
-                    type: string
-                x-examples:
-                  example-1:
-                    type: 'urn:acl:as:InvalidRole'
-                    title: User does not have roles to use API
-                    detail: User with consumer role may call the API
-              examples:
-                example-1:
-                  value:
-                    type: 'urn:acl:as:InvalidRole'
-                    title: User does not have roles to use API
-                    detail: User with consumer role may call the API
+                $ref: '#/components/schemas/deleteNotificationNotFound'
         '403':
           description: |-
             Forbidden
@@ -1035,12 +883,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/deleteNotificationInvalidUserResponse'
-          headers:
-            Content-Type:
+                $ref: '#/components/schemas/deleteNotificationForbiddenResponse'
+        '401':
+          description: |-
+            Unauthorized
+              - Invalid token
+              - User with non-consumer role trying to call the API
+          content:
+            application/json:
               schema:
-                type: string
-              description: application/json
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  detail:
+                    type: string
+                x-examples:
+                  example-1:
+                    type: 'urn:dx:acl:forbidden'
+                    title: Forbidden
+                    detail: User with consumer role may call the API
+              examples:
+                example-1:
+                  value:
+                    type: 'urn:dx:acl:forbidden'
+                    title: Forbidden
+                    detail: User with consumer role may call the API
       security:
         - authorization: []
 
@@ -1051,47 +921,79 @@ components:
       type: http
       scheme: bearer
   schemas:
-    getPolicySuccessResponse2:
-      title: getPolicySuccessResponse2
+    getPolicySuccessResponseWithResourceType:
+      title: get policy for type resource
       required:
         - type
         - title
-        - result
+        - results
       properties:
         type:
           type: string
         title:
           type: string
-        result:
+        results:
           type: array
           items:
             type: object
             properties:
               policyId:
                 type: string
-              ownerId:
-                type: string
               itemId:
                 type: string
               itemType:
                 type: string
                 enum: [ "RESOURCE_GROUP", "RESOURCE" ]
-              consumerEmailId:
-                type: string
-              consumerFirstName:
-                type: string
-              consumerLastName:
-                type: string
+              consumer:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                          name:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                firstName:
+                                  type: string
+                                lastName:
+                                  type: string
+                          id:
+                            type: string
+              provider:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                          name:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                firstName:
+                                  type: string
+                                lastName:
+                                  type: string
+                          id:
+                            type: string
               status:
                 type: string
                 enum: [ "ACTIVE","DELETED" ]
               expiryAt:
-                type: string
-              ownerEmailId:
-                type: string
-              ownerFirstName:
-                type: string
-              ownerLastName:
                 type: string
               constraints:
                 type: object
@@ -1099,66 +1001,110 @@ components:
                   access:
                     type: array
       example:
-        type: "urn:dx:acl:success"
-        title: Success
-        result:
-          - policyId: aaaaaaaa-1234-1234-1234-1234aaaa1234
-            ownerId: bbbbbbbb-5678-5678-5678-5678aaaa5678
-            itemId: cccccccc-4576-3455-5645-3565aaaa4255
-            itemType: RESOURCE
-            consumerEmailId: dummyConsumer@example.com
-            consumerFirstName: Some
-            consumerLastName: Consumer
-            status: ACTIVE
-            expiryAt: '2024-03-05T20:00:19'
-            ownerEmailId: someProvider@example.com
-            ownerFirstName: Some
-            ownerLastName: Provider
-            constraints:
-              access:
-                - sub
+        {
+          "type": "urn:dx:acl:success",
+          "title": "Success",
+          "results": [
+            {
+              "policyId": "aaaaaaaa-1234-1234-1234-1234aaaa1234",
+              "itemId": "cccccccc-4576-3455-5645-3565aaaa4255",
+              "itemType": "RESOURCE",
+              "expiryAt": "2024-03-05T20:00:19",
+              "constraints": {access:[sub]},
+              "status": "ACTIVE",
+              "consumer": {
+                "email": "dummyConsumer@example.com",
+                "name": {
+                  "firstName": "Some",
+                  "lastName": "Consumer"
+                },
+                "id": "gklmcd4-4576-3455-5645-3565aaaa4255"
+              },
+              "provider": {
+                "email": "someProvider@example.com",
+                "name": {
+                  "firstName": "Some",
+                  "lastName": "Provider"
+                },
+                "id": "abcdcd4-4576-3455-5645-3565aaaa4255"
+              }
+            }
+          ]
+        }
 
-    getPolicySuccessResponse1:
-      title: getPolicySuccessResponse1
+    getPolicySuccessResponseWithResourceGroup:
+      title: get policy with for type resource-group
       required:
         - type
         - title
-        - result
+        - results
       properties:
         type:
           type: string
         title:
           type: string
-        result:
+        results:
           type: array
           items:
             type: object
             properties:
               policyId:
                 type: string
-              ownerId:
-                type: string
               itemId:
                 type: string
               itemType:
                 type: string
                 enum: [ "RESOURCE_GROUP", "RESOURCE" ]
-              consumerEmailId:
-                type: string
-              consumerFirstName:
-                type: string
-              consumerLastName:
-                type: string
+              consumer:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                          name:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                firstName:
+                                  type: string
+                                lastName:
+                                  type: string
+                          id:
+                            type: string
+              provider:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                          name:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                firstName:
+                                  type: string
+                                lastName:
+                                  type: string
+                          id:
+                            type: string
               status:
                 type: string
                 enum: [ "ACTIVE","DELETED" ]
               expiryAt:
-                type: string
-              ownerEmailId:
-                type: string
-              ownerFirstName:
-                type: string
-              ownerLastName:
                 type: string
               constraints:
                 type: object
@@ -1166,39 +1112,135 @@ components:
                   access:
                     type: array
       example:
-        type: 'urn:dx:acl:success'
+        {
+          "type": "urn:dx:acl:success",
+          "title": "Success",
+          "results": [
+            {
+              "policyId": "aaaaaaaa-6473-3546-5436-8758aaaa5897",
+              "itemId": "cccccccc-6754-8958-2456-3452aaaa5436",
+              "itemType": "RESOURCE_GROUP",
+              "expiryAt": "2024-09-05T20:00:19",
+              "constraints": { access: [ sub ] },
+              "status": "ACTIVE",
+              "consumer": {
+                "email": "dummyConsumerAbcd@example.com",
+                "name": {
+                  "firstName": "Dummy",
+                  "lastName": "Consumer"
+                },
+                "id": "gklmcd4-4576-3455-5645-3565aaaa4255"
+              },
+              "provider": {
+                "email": "dummyProvider@example.com",
+                "name": {
+                  "firstName": "Dummy",
+                  "lastName": "Provider"
+                },
+                "id": "bbbbbbbb-8958-2445-2354-7587aaaa6776"
+              }
+            },
+            {
+              "policyId": "aaaaaaaa-9870-7676-7456-2454aaaa1111",
+              "itemId": "cccccccc-2452-2455-5656-1111aaaa7878",
+              "itemType": "RESOURCE_GROUP",
+              "expiryAt": "2024-08-05T20:00:29",
+              "constraints": { access: [ sub ] },
+              "status": "ACTIVE",
+              "consumer": {
+                "email": "dummyConsumer@example.com",
+                "name": {
+                  "firstName": "Dummy",
+                  "lastName": "Consumer"
+                },
+                "id": "gklmcd4-4576-3455-5645-3565aaaa4255"
+              },
+              "provider": {
+                "email": "dummyProviderTwo@example.com",
+                "name": {
+                  "firstName": "Some",
+                  "lastName": "ProviderTwo"
+                },
+                "id": "bbbbbbbb-2652-1167-1766-4587aaaa2454"
+              }
+            }
+          ]
+        }
+
+    deleteNotificationForbiddenResponse:
+      title: Delete notification forbidden
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        results:
+          type: string
+      required:
+        - type
+        - title
+        - results
+      example:
+        type: urn:dx:acl:forbidden
+        title: Forbidden
+        detail: Request could not be withdrawn, as it is doesn't belong to the user
+
+    deleteNotificationNotFound:
+      title: Delete notification not found
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        results:
+          type: string
+      required:
+        - type
+        - title
+        - results
+      example:
+        type: urn:dx:acl:notFound
+        title: Not Found
+        detail: Request could not be withdrawn, as it is not found
+
+    deleteNotificationBadRequest:
+      title: Delete notification bad request
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        results:
+          type: string
+      required:
+        - type
+        - title
+        - results
+      example:
+        type: urn:dx:acl:badRequest
+        title: Bad Request
+        detail: Request could not be withdrawn, as it is not in pending status
+    deleteNotification:
+      title: Delete Notification
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        results:
+          type: string
+      required:
+        - type
+        - title
+        - results
+      example:
+        type: urn:dx:acl:success
         title: Success
-        result:
-          - policyId: aaaaaaaa-6473-3546-5436-8758aaaa5897
-            ownerId: bbbbbbbb-8958-2445-2354-7587aaaa6776
-            itemId: cccccccc-6754-8958-2456-3452aaaa5436
-            itemType: RESOURCE_GROUP
-            consumerEmailId: dummyConsumerAbcd@example.com
-            consumerFirstName: Dummy
-            consumerLastName: Consumer
-            status: ACTIVE
-            expiryAt: '2024-09-05T20:00:19'
-            ownerEmailId: dummyProvider@example.com
-            ownerFirstName: Dummy
-            ownerLastName: Provider
-            constraints:
-              access:
-                - sub
-          - policyId: aaaaaaaa-9870-7676-7456-2454aaaa1111
-            ownerId: bbbbbbbb-2652-1167-1766-4587aaaa2454
-            itemId: cccccccc-2452-2455-5656-1111aaaa7878
-            itemType: RESOURCE_GROUP
-            consumerEmailId: dummyConsumer@example.com
-            consumerFirstName: Dummy
-            consumerLastName: Consumer
-            status: ACTIVE
-            expiryAt: '2024-08-05T20:00:29'
-            ownerEmailId: dummyProviderTwo@example.com
-            ownerFirstName: Dummy
-            ownerLastName: ProviderTwo
-            constraints:
-              access:
-                - sub
+        results: Request deleted successfully
 
     deletePolicy:
       title: deletePolicy
@@ -1208,16 +1250,16 @@ components:
           type: string
         title:
           type: string
-        result:
+        results:
           type: string
       required:
         - type
         - title
-        - result
+        - results
       example:
         type: urn:dx:acl:success
         title: Success
-        result: Policy deleted successfully
+        results: Policy deleted successfully
     deletePolicyInvalidUserResponse:
       title: deletePolicyInvalidUserResponse
       type: object
@@ -1235,7 +1277,7 @@ components:
       example:
         type: urn:dx:acl:forbidden
         title: Access Denied
-        detail: Policy could not be deleted, user doesn't own the policy
+        detail: Policy could not be deleted, as user doesn't own the policy
     getPolicyInvalidUserResponse:
       title: getPolicyInvalidUserResponse
       type: object
@@ -1254,24 +1296,7 @@ components:
         type: urn:dx:acl:forbidden
         title: Access Denied
         detail: Policy could not be fetched, user doesn't own the policy
-    deleteNotificationInvalidUserResponse:
-      title: deleteNotificationInvalidUserResponse
-      type: object
-      properties:
-        type:
-          type: string
-        title:
-          type: string
-        detail:
-          type: string
-      required:
-        - type
-        - title
-        - detail
-      example:
-        type: urn:dx:acl:forbidden
-        title: Access Denied
-        detail: Notification could not be deleted, notification doesn't belong to the user
+
     updateNotificationInvalidUserResponse:
       title: updateNotificationInvalidUserResponse
       type: object
@@ -1305,9 +1330,9 @@ components:
         - title
         - detail
       example:
-          type: urn:dx:acl:resourceNotFound
-          title: Not Found
-          detail: Resource Not Found
+        type: urn:dx:acl:resourceNotFound
+        title: Not Found
+        detail: Resource Not Found
     deletePolicyErrorResponse:
       title: deletePolicyErrorResponse
       type: object
@@ -1323,9 +1348,27 @@ components:
         - title
         - detail
       example:
-          type: urn:dx:acl:badRequest
-          title: Bad Request
-          detail: Policy could not be deleted, count not equal to list of policies to be deleted
+        type: urn:dx:acl:badRequest
+        title: Bad Request
+        detail: Policy could not be deleted, as it is not in active state or is expired
+    deletePolicyNotFoundErrorResponse:
+      title: deletePolicyNotFoundErrorResponse
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+      required:
+        - type
+        - title
+        - detail
+      example:
+        type: urn:dx:acl:notFound
+        title: Not Found
+        detail: Policy could not be deleted, as it doesn't exist
     Unauthorized:
       type: object
       properties:
@@ -1343,9 +1386,9 @@ components:
         - title
         - detail
       example:
-          type: urn:dx:acl:MissingAuthenticationToken
-          title: Missing auth details
-          detail: Missing auth details
+        type: urn:dx:acl:MissingAuthenticationToken
+        title: Missing auth details
+        detail: Missing auth details
     ErrorResponse:
       type: object
       properties:
@@ -1466,7 +1509,7 @@ components:
         - results
       x-examples:
         Example:
-          type: 'urn:acl:as:Success'
+          type: 'urn:dx:acl:Success'
           title: User permission requests
           results:
             - requestId: e4619679-f5d9-4eff-9f79-bbded6130bb1
